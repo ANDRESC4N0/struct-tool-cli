@@ -1,0 +1,155 @@
+#!/usr/bin/env python3
+
+import os
+import sys
+import click
+import utils.utils as utils
+import utils.logs as logs
+import components_services as cs
+import gateway_services as cg
+
+api_dir = os.path.join(os.getcwd(), "cmd", "api")
+
+def create_interface_client(template_file_path, interface_name):
+    interfaces_file = os.path.join(api_dir, "clients", "interfaces.go")
+    if not os.path.exists(interfaces_file):
+        logs.echo(f"El archivo interfaces.go no existe. Creando el archivo con la interfaz {interface_name}...")
+        with open(template_file_path, "r") as template_file:
+            interface_content = template_file.read()
+
+        with open(interfaces_file, "w") as file:
+            file.write("package clients\n\n")
+            file.write(interface_content)
+        
+        return
+
+    try:
+        with open(interfaces_file, "r+") as file:
+            lines = file.readlines()
+            found = False
+            for line in lines:
+                if f"type {interface_name} interface {{" in line:
+                    found = True
+                    break
+            
+            if found:
+                logs.echo(f"La interfaz {interface_name} ya está definida en el archivo interfaces.go.")
+            else:
+                logs.echo(f"La interfaz {interface_name} no está definida en el archivo interfaces.go. Agregando la interfaz...")
+                with open(template_file_path, "r") as template_file:
+                    content = template_file.read()
+                
+                lines.append("\n" + content + "\n")
+            
+            file.seek(0)
+            file.writelines(lines)
+            file.truncate()
+        
+    except Exception as e:
+        logs.error(f"Error: {e}")
+    
+def create_client_impl(template_file_path, client_name):
+    rest_client_file = os.path.join(api_dir, "clients", client_name)
+    if os.path.exists(rest_client_file):
+        with open(rest_client_file, "r") as file:
+            rest_client_content = file.read()
+
+        with open(template_file_path, "r") as template:
+            template_content = template.read()
+
+        if template_content.strip() == rest_client_content.strip():
+            logs.echo(f"El archivo {client_name} ya existe y tiene el contenido correcto.")
+        else:
+            logs.echo(f"El archivo {client_name} existe pero tiene un contenido distinto al esperado. Actualizando el archivo...")
+
+            with open(rest_client_file, "w") as file:
+                file.write(template_content)
+    else:
+        logs.echo(f"El archivo {client_name} no existe. Creando el archivo con el contenido del template...")
+        utils.create_file(rest_client_file, template_file_path, None)
+
+def create_model(template_file_path, model_path):
+    rest_client_file = os.path.join(api_dir, "models", model_path)
+    if not os.path.exists(rest_client_file):
+        logs.echo(f"El modelo no existe. Creando el archivo con el contenido del template...")
+        utils.create_file(rest_client_file, template_file_path, None)
+        return
+    
+    try:
+        with open(rest_client_file, "r") as file:
+            rest_client_content = file.read()
+
+        with open(template_file_path, "r") as template:
+            template_content = template.read()
+
+    except FileNotFoundError as e:
+        if str(e.filename) == rest_client_file:
+            logs.error(f"Error: No se encuentra el archivo '{rest_client_file}'.")
+        elif str(e.filename) == template_file_path:
+            logs.error(f"Error: No se encuentra el archivo '{template_file_path}'.")
+        else:
+            logs.error(f"Error: Archivo no encontrado: {e.filename}.")
+        
+        raise  # o manejar la excepción de manera adecuada
+
+    if template_content.strip() == rest_client_content.strip():
+        logs.echo(f"El modelo ya existe y tiene el contenido correcto.")
+        return
+    
+    click.echo(f"El modelo existe pero tiene un contenido distinto al esperado. Actualizando el archivo...")
+    with open(rest_client_file, "w") as file:
+        file.write(template_content)
+
+@click.command()
+def create_rest_client():
+    """Crea el cliente rest_client y su interfaz."""
+    logs.echo("Creando cliente rest_client")
+    
+    template_file_interface = utils.get_template_file_path("rest_client_interface_template.txt")
+    create_interface_client(template_file_interface, "IRestClient")
+
+    template_file_client = utils.get_template_file_path("rest_client_template.txt")
+    create_client_impl(template_file_client, "rest_client.go")
+
+    template_model_file = utils.get_template_file_path("rest_client_model_template.txt")
+    create_model(template_model_file, "restclient/rest_client.go")
+
+@click.command()
+def create_kvs_client():
+    """Crea el cliente kvs y su interfaz."""
+
+    # Lógica para crear el cliente kvs
+    logs.echo("Creando cliente kvs")
+
+@click.command()
+def create_object_storage_client():
+    """Crea el cliente object_storage y su interfaz."""
+    # Lógica para crear el cliente object_storage
+    logs.echo("Creando cliente object_storage")
+
+@click.command()
+def create_database_client():
+    """Crea el cliente database y su interfaz."""
+    # Lógica para crear el cliente database
+    logs.echo("Creando cliente database")
+
+@click.group()
+def cli():
+    pass
+
+# Comandos para crear servicios
+cli.add_command(cs.create_component)
+cli.add_command(cs.add_service_component)
+
+# Comandos para crear clientes
+cli.add_command(create_rest_client)
+cli.add_command(create_kvs_client)
+cli.add_command(create_object_storage_client)
+cli.add_command(create_database_client)
+
+# Comandos para crear gateways
+cli.add_command(cg.create_gateway)
+cli.add_command(cg.add_service_gateway)
+
+if __name__ == "__main__":
+    cli()

@@ -1,0 +1,6 @@
+type IRestClient interface {
+	Get(ctx context.Context, url string, request restclient.Request, txn *newrelic.Transaction) restclient.Response
+	Post(ctx context.Context, url string, request restclient.Request, txn *newrelic.Transaction) restclient.Response
+	Put(ctx context.Context, url string, request restclient.Request, txn *newrelic.Transaction) restclient.Response
+	Delete(ctx context.Context, url string, request restclient.Request, txn *newrelic.Transaction) restclient.Response
+}

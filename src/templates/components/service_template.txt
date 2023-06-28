@@ -1,0 +1,19 @@
+package {NamePackage}
+
+import (
+    "context"
+    "strings"
+
+    "github.com/newrelic/go-agent/v3/newrelic"
+)
+
+type I{NameComponent}Service interface {
+    GetNameFunction(requestSearch interface{}, ctx context.Context, txn *newrelic.Transaction) (interface{}, error)
+}
+
+type {NameComponent}Service struct {
+}
+
+func (service *{NameComponent}Service) GetNameFunction(requestSearch interface{}, ctx context.Context, txn *newrelic.Transaction) (interface{}, error){
+    return nil, nil
+}

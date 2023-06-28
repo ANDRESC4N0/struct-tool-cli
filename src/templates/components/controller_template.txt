@@ -1,0 +1,29 @@
+package {NamePackage}
+
+import (
+    "net/http"
+    "strconv"
+
+    "github.com/mercadolibre/fury_go-core/pkg/telemetry/tracing"
+    "github.com/mercadolibre/fury_go-core/pkg/web"
+)
+
+type I{NameComponent}Controller interface {
+    GetNameFunction(w http.ResponseWriter, r *http.Request) error
+}
+
+type {NameComponent}Controller struct {
+    {NameComponent}Service I{NameComponent}Service
+}
+
+// Get NameFunction
+// @Tags    Flows
+// @Param   x-auth      header   string		true	"Auth"
+// @Success 200         {string} string		"Success"
+// @failure	404			{string} string    	"Not found"
+// @Router  /filters/search [get]
+func (ctrl *{NameComponent}Controller) GetNameFunction(w http.ResponseWriter, r *http.Request) error {
+    ctx := tracing.ContextFromHeader(r.Context(), r.Header)
+
+    return web.EncodeJSON(w, nil, http.StatusOK)
+}

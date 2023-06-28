@@ -1,0 +1,56 @@
+package gateway
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+
+	"github.com/mercadolibre/fury_go-core/pkg/log"
+	"github.com/mercadolibre/go-meli-toolkit/goutils/apierrors"
+	"github.com/newrelic/go-agent/v3/newrelic"
+)
+
+type I{NameGateway}Gateway interface {
+	{NameFunction}(search requests.{NameModelRequest}, ctx context.Context, txn *newrelic.Transaction) (*responses.{NameModelResponse}, error)
+}
+
+type {NameGateway}Gateway struct {
+	RestClient clients.IRestClient
+}
+
+func (service *{NameGateway}Gateway) {NameFunction}(search requests.{NameModelRequest}, ctx context.Context, txn *newrelic.Transaction) (*responses.{NameModelResponse}, error) {
+	fields := utils.NewLogFields("{NameFunction}")
+	log.Info(ctx, fmt.Sprintf("{NameFunction} with params: %#v", search), fields...)
+	var result responses.{NameModelResponse}
+
+	var request = restclient.Request{}
+
+	urlQuery, _ := utils.GenerateQueryURL(search)
+	url := fmt.Sprintf("%v%v%v", "BaseURL", "/Complement", urlQuery)
+
+	restClientResponse := service.RestClient.Get(ctx, url, request, txn)
+
+	if restClientResponse.Error != nil {
+		fields.Error(restClientResponse.Error)
+		log.Error(ctx, fmt.Sprintf("Error rest client REQUEST: %#v URL: %#v ", request, url), fields...)
+
+		return nil, restClientResponse.Error
+	}
+
+	if restClientResponse.IsError {
+		apiErr, _ := apierrors.NewApiErrorFromBytes(restClientResponse.Body)
+		fields.Error(apiErr)
+		log.Error(ctx, apiErr.Message(), fields...)
+		return nil, apiErr
+	}
+
+	err := json.Unmarshal(restClientResponse.Body, &result)
+	if err != nil {
+		fields.Error(err)
+		log.Error(ctx, "Error in unmarshal resp SearchFlows", fields...)
+
+		return &result, err
+	}
+
+	return &result, nil
+}

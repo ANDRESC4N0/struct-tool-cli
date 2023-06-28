@@ -1,0 +1,36 @@
+//go:build wireinject
+// +build wireinject
+
+package app
+
+import (
+	"github.com/google/wire"
+)
+
+var clientsRouterSet = wire.NewSet(
+)
+
+var servicesRouterSet = wire.NewSet(
+)
+
+var controllersRouterSet = wire.NewSet(
+)
+
+var gatewayRouterSet = wire.NewSet(
+)
+
+var middlewaresRouterSet = wire.NewSet(
+)
+
+func Start() (*web.Router, error) {
+	panic(wire.Build(
+		clientsRouterSet,
+		servicesRouterSet,
+		controllersRouterSet,
+		gatewayRouterSet,
+		middlewaresRouterSet,
+
+		providers.ProviderRouter,
+	))
+	return nil, nil
+}

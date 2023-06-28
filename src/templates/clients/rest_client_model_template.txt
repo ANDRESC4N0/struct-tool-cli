@@ -1,0 +1,26 @@
+package restclient
+
+import (
+	"net/http"
+)
+
+type Request struct {
+	QueryParams map[string]string
+	PathParams  map[string]string
+	Headers     map[string]string
+	Body        interface{}
+}
+
+type Response struct {
+	Headers    http.Header
+	Body       []byte
+	StatusCode int
+	IsError    bool
+	Error      error
+}
+
+type Error struct {
+	Error   string `json:"error"`
+	Status  int    `json:"status"`
+	Message string `json:"message"`
+}

@@ -1,0 +1,153 @@
+package clients
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"strconv"
+    
+	"github.com/mercadolibre/fury_go-core/pkg/log"
+	"github.com/mercadolibre/fury_godin/v3/security/utils/traceability"
+	"github.com/mercadolibre/go-meli-toolkit/goutils/apierrors"
+	"github.com/newrelic/go-agent/v3/newrelic"
+	"gopkg.in/resty.v1"
+)
+
+type RestClient struct {
+	rest *resty.Client
+}
+
+func NewRestClient() *RestClient {
+	return &RestClient{
+		rest: resty.New(),
+	}
+}
+
+func (cli *RestClient) Get(ctx context.Context, url string, request restclient.Request, txn *newrelic.Transaction) restclient.Response {
+	return cli.call(ctx, url, request, http.MethodGet, txn)
+}
+
+func (cli *RestClient) Post(ctx context.Context, url string, request restclient.Request, txn *newrelic.Transaction) restclient.Response {
+	return cli.call(ctx, url, request, http.MethodPost, txn)
+}
+
+func (cli *RestClient) Put(ctx context.Context, url string, request restclient.Request, txn *newrelic.Transaction) restclient.Response {
+	return cli.call(ctx, url, request, http.MethodPut, txn)
+}
+
+func (cli *RestClient) Delete(ctx context.Context, url string, request restclient.Request, txn *newrelic.Transaction) restclient.Response {
+	return cli.call(ctx, url, request, http.MethodDelete, txn)
+}
+
+func getMappedError(resp *resty.Response) int {
+	if resp.StatusCode() >= http.StatusInternalServerError {
+		return http.StatusFailedDependency
+	}
+	return resp.StatusCode()
+}
+
+func (cli *RestClient) call(ctx context.Context, url string, request restclient.Request, method string, txn *newrelic.Transaction) restclient.Response {
+	var err error
+	var resp *resty.Response
+
+	fields := utils.NewLogFields(contexttool.GetNRTransactionName(ctx))
+	fields.String("url", url)
+	fields.String("method", method)
+	if len(request.QueryParams) > 0 {
+		fields.String("query-params", fmt.Sprintf("%#v", request.QueryParams))
+	}
+	if len(request.PathParams) > 0 {
+		fields.String("path-params", fmt.Sprintf("%#v", request.PathParams))
+	}
+
+	requestHeaders := map[string]string{}
+	if request.Headers != nil {
+		requestHeaders = request.Headers
+	}
+	headers := utils.MergeMapString(requestHeaders, traceability.GetTraceHeaders(ctx))
+
+	user := contexttool.GetUser(ctx)
+	if _, ok := headers["x-auth"]; user != nil && !ok {
+		headers["x-auth"] = user.SessionID
+	}
+	if txn != nil {
+		segment := &newrelic.DatastoreSegment{
+			StartTime: txn.StartSegmentNow(),
+			Product:   "API",
+			Operation: method,
+			QueryParameters: map[string]interface{}{
+				"key":   "url",
+				"value": url,
+			},
+		}
+
+		defer func() { segment.End() }()
+	}
+
+	rest := cli.rest.SetTimeout(config.RestClientConfig.DefaultTimeOut).R().
+		SetHeaders(headers).
+		SetBody(request.Body).
+		SetQueryParams(request.QueryParams).
+		SetPathParams(request.PathParams)
+
+	switch method {
+	case http.MethodGet:
+		resp, err = rest.Get(url)
+	case http.MethodPost:
+		resp, err = rest.Post(url)
+	case http.MethodPut:
+		resp, err = rest.Put(url)
+	case http.MethodDelete:
+		resp, err = rest.Delete(url)
+	}
+
+	metricsTags := map[string]string{
+		"url":         url,
+		"method":      method,
+		"status_code": fmt.Sprintf("%v", resp.StatusCode()),
+		"result":      strconv.Itoa(resp.StatusCode()),
+	}
+
+	metrics.SendMetricDataDog(constants.RestCliData, 1, metrics.CreateMetricTags(metricsTags)...)
+
+	if err != nil {
+		fields.Error(err)
+		log.Error(ctx, fmt.Sprintf("Error %v http resource", method), fields...)
+		return restclient.Response{
+			Body:       nil,
+			StatusCode: http.StatusFailedDependency,
+			Error:      err,
+		}
+	}
+
+	if resp.IsError() {
+		err = cli.handleError(ctx, resp, fields)
+	}
+
+	return restclient.Response{
+		Headers:    resp.Header().Clone(),
+		Body:       resp.Body(),
+		StatusCode: resp.StatusCode(),
+		IsError:    resp.IsError(),
+		Error:      err,
+	}
+}
+
+func (*RestClient) handleError(ctx context.Context, resp *resty.Response, logFields utils.LogFields) error {
+	var apiErr restclient.Error
+	var errMessage string
+	var errDescription string
+	err := json.Unmarshal(resp.Body(), &apiErr)
+	if err != nil {
+		errMessage = "api_error"
+		errDescription = resp.String()
+	} else {
+		errMessage = apiErr.Message
+		errDescription = apiErr.Error
+	}
+	err = apierrors.NewApiError(errMessage, errDescription, getMappedError(resp), nil)
+	logFields.Error(err)
+	log.Error(ctx, "Http call error", logFields...)
+	return err
+}
