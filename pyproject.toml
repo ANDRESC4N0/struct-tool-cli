@@ -1,0 +1,36 @@
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "struct_go"
+version = "0.1.0"
+description = "CLI para crear estructuras base de proyectos APIs y microservicios en Go"
+authors = ["Leonardo Cano <andrescdeveloper@gmail.com>"]
+
+[project]
+name = "struct_go"
+version = "0.0.1"
+authors = [
+  { name="Leonardo Cano", email="andrescdeveloper@gmail.com" },
+]
+description = "CLI para crear estructuras base de proyectos APIs y microservicios en Go"
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+click = "^8.0.1"
+
+[tool.poetry.dev-dependencies]
+
+[build-system.poetry]
+requires = ["poetry>=1.1.0"]
+
+[build-system.poetry.dependencies]
+python = "^3.8"

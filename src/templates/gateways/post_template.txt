@@ -1,0 +1,41 @@
+func (gateway *{NameGateway}Gateway) {NameFunction}(ctx context.Context, body requests.{NameModelRequest}, userID string, txn *newrelic.Transaction) (*responses.{NameModelResponse}, error) {
+	logFields := utils.NewLogFields("{NameFunction}")
+	var (
+		response responses.{NameModelResponse}
+		err      error
+	)
+
+	url := fmt.Sprintf("%v%v", config.RestClientConfig.BaseUrlMP, "/Complement")
+	requestModel := restclient.Request{
+		QueryParams: map[string]string{},
+		PathParams:  map[string]string{},
+		Headers: map[string]string{
+            // TODO: Add headers
+		},
+		Body: body,
+	}
+	restClientResponse := gateway.RestClient.Post(ctx, url, requestModel, txn)
+
+	if restClientResponse.Error != nil {
+		logFields.Error(restClientResponse.Error)
+		log.Error(ctx, "Error rest client Create Payouts CBT", logFields...)
+
+		return nil, restClientResponse.Error
+	}
+    if restClientResponse.IsError {
+		apiErr, _ := apierrors.NewApiErrorFromBytes(restClientResponse.Body)
+		logFields.Error(apiErr)
+		log.Error(ctx, apiErr.Message(), logFields...)
+		return nil, apiErr
+	}
+
+	err = json.Unmarshal(restClientResponse.Body, &response)
+	if err != nil {
+		logFields.Error(err)
+		log.Error(ctx, fmt.Sprintf("%v &response: %v", "Error in unmarshal resp Create Payouts CBT", &response), logFields...)
+
+		return nil, err
+	}
+
+	return &response, nil
+}
